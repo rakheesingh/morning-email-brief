@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "email-brief"
+version = "1.0.0"
+description = "AI-powered CLI tool that summarizes and prioritizes your inbox every morning"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+keywords = ["email", "automation", "ai", "gmail", "productivity", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Email",
+]
+dependencies = [
+    "google-api-python-client>=2.100.0",
+    "google-auth-oauthlib>=1.2.0",
+    "google-auth-httplib2>=0.2.0",
+    "groq>=0.4.0",
+    "google-generativeai>=0.8.0",
+    "schedule>=1.2.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+email-brief = "email_brief.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

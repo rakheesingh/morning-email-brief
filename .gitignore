@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+
+# Node.js (auth-server)
+node_modules/
+.next/
+dist/
+
+# Secrets & local data
+.env
+.env.local
+token.json
+*.db
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
