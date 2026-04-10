@@ -2,21 +2,23 @@ import base64
 import json
 import re
 import subprocess
-import sys
 import platform
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from threading import Event
 
+import keyring
+import requests as http_requests
 from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
-from .config import TOKEN_PATH, AUTH_SERVER_URL, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET
+from .config import AUTH_SERVER_URL
 from .types import RawEmail
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 CLI_CALLBACK_PORT = 9587
+KEYRING_SERVICE = "email-brief"
 
 
 def _open_browser(url: str):
@@ -29,26 +31,82 @@ def _open_browser(url: str):
         subprocess.Popen(["xdg-open", url])
 
 
-def authenticate() -> Credentials:
-    if not TOKEN_PATH.exists():
+def _save_tokens(access_token: str, refresh_token: str, expiry_date: int):
+    keyring.set_password(KEYRING_SERVICE, "access_token", access_token)
+    keyring.set_password(KEYRING_SERVICE, "refresh_token", refresh_token)
+    keyring.set_password(KEYRING_SERVICE, "expiry_date", str(expiry_date))
+
+
+def _get_tokens() -> dict:
+    access_token = keyring.get_password(KEYRING_SERVICE, "access_token")
+    refresh_token = keyring.get_password(KEYRING_SERVICE, "refresh_token")
+    expiry_date = keyring.get_password(KEYRING_SERVICE, "expiry_date")
+
+    if not access_token or not refresh_token:
         raise FileNotFoundError("Not authenticated. Run: email-brief login")
 
-    token_data = json.loads(TOKEN_PATH.read_text())
-    creds = Credentials(
-        token=token_data.get("access_token"),
-        refresh_token=token_data.get("refresh_token"),
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=token_data.get("client_id", "") or GMAIL_CLIENT_ID,
-        client_secret=token_data.get("client_secret", "") or GMAIL_CLIENT_SECRET,
-        expiry=None,
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expiry_date": int(expiry_date) if expiry_date else 0,
+    }
+
+
+def _clear_tokens():
+    for key in ("access_token", "refresh_token", "expiry_date"):
+        try:
+            keyring.delete_password(KEYRING_SERVICE, key)
+        except keyring.errors.PasswordDeleteError:
+            pass
+
+
+def _refresh_via_server(refresh_token: str) -> dict:
+    resp = http_requests.post(
+        f"{AUTH_SERVER_URL}/api/auth/refresh",
+        json={"refresh_token": refresh_token},
+        timeout=15,
     )
 
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        token_data["access_token"] = creds.token
-        TOKEN_PATH.write_text(json.dumps(token_data, indent=2))
+    if resp.status_code != 200:
+        error = resp.json().get("error", "Unknown error")
+        raise RuntimeError(f"Token refresh failed: {error}")
 
-    return creds
+    data = resp.json()
+    return {
+        "access_token": data["access_token"],
+        "expiry_date": data.get("expiry_date", 0),
+    }
+
+
+def is_authenticated() -> bool:
+    try:
+        _get_tokens()
+        return True
+    except (FileNotFoundError, Exception):
+        return False
+
+
+def authenticate() -> Credentials:
+    tokens = _get_tokens()
+
+    is_expired = tokens["expiry_date"] and tokens["expiry_date"] < int(time.time() * 1000)
+
+    if is_expired:
+        try:
+            new_tokens = _refresh_via_server(tokens["refresh_token"])
+            tokens["access_token"] = new_tokens["access_token"]
+            tokens["expiry_date"] = new_tokens.get("expiry_date", 0)
+
+            _save_tokens(
+                tokens["access_token"],
+                tokens["refresh_token"],
+                tokens["expiry_date"],
+            )
+        except Exception:
+            _clear_tokens()
+            raise RuntimeError("Token expired. Run: email-brief login")
+
+    return Credentials(token=tokens["access_token"])
 
 
 def wait_for_auth_callback():
@@ -81,8 +139,13 @@ def wait_for_auth_callback():
                 done.set()
                 return
 
-            tokens = json.loads(base64.urlsafe_b64decode(tokens_encoded + "=="))
-            TOKEN_PATH.write_text(json.dumps(tokens, indent=2))
+            token_data = json.loads(base64.urlsafe_b64decode(tokens_encoded + "=="))
+
+            _save_tokens(
+                token_data.get("access_token", ""),
+                token_data.get("refresh_token", ""),
+                token_data.get("expiry_date", 0),
+            )
 
             self.send_response(302)
             self.send_header("Location", f"{AUTH_SERVER_URL}/auth/success")
@@ -115,7 +178,7 @@ def _decode_base64(data: str) -> str:
     return base64.b64decode(padded + "==").decode("utf-8", errors="replace")
 
 
-def _extract_header(headers: list[dict], name: str) -> str:
+def _extract_header(headers: list, name: str) -> str:
     for h in headers:
         if h.get("name", "").lower() == name.lower():
             return h.get("value", "")

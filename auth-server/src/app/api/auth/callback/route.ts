@@ -22,7 +22,15 @@ export async function GET(request: NextRequest) {
   try {
     const { tokens } = await oAuth2Client.getToken(code);
 
-    const encodedTokens = Buffer.from(JSON.stringify(tokens)).toString("base64url");
+    const tokenData = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date,
+      scope: tokens.scope,
+      token_type: tokens.token_type,
+    };
+
+    const encodedTokens = Buffer.from(JSON.stringify(tokenData)).toString("base64url");
 
     const cliRedirect = `http://localhost:9587/callback?tokens=${encodedTokens}`;
     return NextResponse.redirect(cliRedirect);

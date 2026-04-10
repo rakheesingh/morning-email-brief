@@ -1,6 +1,11 @@
 import sys
+import warnings
 
-from .config import GROQ_API_KEY, GEMINI_API_KEY, BRIEFING_TIME, EMAIL_COUNT, TOKEN_PATH
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*NotOpenSSLWarning.*")
+warnings.filterwarnings("ignore", message=".*urllib3.*")
+
+from .config import GROQ_API_KEY, GEMINI_API_KEY, BRIEFING_TIME, EMAIL_COUNT
 from .renderer import done, error, render_briefing, render_history
 
 
@@ -29,11 +34,10 @@ def _setup():
     print("\n  📬 Email Brief — Setup\n")
 
     groq_key = input("  Groq API Key (free from https://console.groq.com): ").strip()
-    auth_url = input("  Auth Server URL (default: http://localhost:3001): ").strip() or "http://localhost:3001"
 
     lines = [
         f"GROQ_API_KEY={groq_key}",
-        f"AUTH_SERVER_URL={auth_url}",
+        f"AUTH_SERVER_URL=https://email-brief-eight.vercel.app",
         f"BRIEFING_TIME={BRIEFING_TIME}",
         f"EMAIL_COUNT={EMAIL_COUNT}",
     ]
@@ -45,14 +49,13 @@ def _setup():
 
 
 def _login():
-    from .gmail_client import wait_for_auth_callback
+    from .gmail_client import wait_for_auth_callback, is_authenticated, _clear_tokens
 
     print("\n  📬 Email Brief — Gmail Setup\n")
 
-    if TOKEN_PATH.exists():
-        done("Already authenticated! Token found.")
-        print("  To re-authenticate, delete token and run again:")
-        print(f"  rm {TOKEN_PATH}\n")
+    if is_authenticated():
+        done("Already authenticated!")
+        print("  To re-authenticate, run: email-brief logout\n")
         return
 
     try:
@@ -87,8 +90,15 @@ def main():
         print("  Get a free key at: https://console.groq.com\n")
         sys.exit(1)
 
+    if command == "logout":
+        from .gmail_client import _clear_tokens
+        _clear_tokens()
+        done("Logged out. Tokens removed from keychain.")
+        return
+
     if command == "run":
-        if not TOKEN_PATH.exists():
+        from .gmail_client import is_authenticated
+        if not is_authenticated():
             error("Not authenticated. Run: email-brief login")
             sys.exit(1)
 
