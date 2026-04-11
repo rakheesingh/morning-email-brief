@@ -39,6 +39,7 @@ PRIORITY RULES (be strict):
   - A real person (colleague, recruiter, manager) directly emailing YOU and expecting a response
   - Calendar invites or meeting changes from real people
   - Actionable work emails from real humans (not bots)
+  - Emails from the comapnies like mynra,flipkart, amazon etc about real coupon or offer codes given to you
   DO NOT mark as important: automated job alerts (Naukri, LinkedIn, Indeed), bank notifications, newsletters with "important" in subject
 
 "fyi" — Use for:
@@ -67,6 +68,9 @@ COMMON TRAPS TO AVOID:
 - "You have a new job" from Naukri/Indeed → automated alert → "low"
 - "X recruiter expressed interest" → automated platform notification → "low"
 - Emails from noreply@ or automated systems → never "urgent" or "needs reply"
+- Ignore emails from noreply@ or automated systems
+- Ignore emails for bank credentials, OTPs, transactions, any other financial information
+
 
 Return ONLY valid JSON. No markdown, no explanation. Just the array.
 
