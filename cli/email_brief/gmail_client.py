@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import re
 import subprocess
 import platform
@@ -8,17 +9,16 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from threading import Event
 
-import keyring
 import requests as http_requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from .config import AUTH_SERVER_URL
+from .config import AUTH_SERVER_URL, DATA_DIR
 from .types import RawEmail
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 CLI_CALLBACK_PORT = 9587
-KEYRING_SERVICE = "email-brief"
+TOKEN_FILE = DATA_DIR / ".credentials"
 
 
 def _open_browser(url: str):
@@ -32,32 +32,29 @@ def _open_browser(url: str):
 
 
 def _save_tokens(access_token: str, refresh_token: str, expiry_date: int):
-    keyring.set_password(KEYRING_SERVICE, "access_token", access_token)
-    keyring.set_password(KEYRING_SERVICE, "refresh_token", refresh_token)
-    keyring.set_password(KEYRING_SERVICE, "expiry_date", str(expiry_date))
+    data = json.dumps({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expiry_date": expiry_date,
+    })
+    TOKEN_FILE.write_text(data)
+    os.chmod(TOKEN_FILE, 0o600)
 
 
 def _get_tokens() -> dict:
-    access_token = keyring.get_password(KEYRING_SERVICE, "access_token")
-    refresh_token = keyring.get_password(KEYRING_SERVICE, "refresh_token")
-    expiry_date = keyring.get_password(KEYRING_SERVICE, "expiry_date")
-
-    if not access_token or not refresh_token:
+    if not TOKEN_FILE.exists():
         raise FileNotFoundError("Not authenticated. Run: email-brief login")
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "expiry_date": int(expiry_date) if expiry_date else 0,
-    }
+    data = json.loads(TOKEN_FILE.read_text())
+    if not data.get("access_token") or not data.get("refresh_token"):
+        raise FileNotFoundError("Invalid credentials. Run: email-brief login")
+
+    return data
 
 
 def _clear_tokens():
-    for key in ("access_token", "refresh_token", "expiry_date"):
-        try:
-            keyring.delete_password(KEYRING_SERVICE, key)
-        except keyring.errors.PasswordDeleteError:
-            pass
+    if TOKEN_FILE.exists():
+        TOKEN_FILE.unlink()
 
 
 def _refresh_via_server(refresh_token: str) -> dict:
@@ -82,7 +79,7 @@ def is_authenticated() -> bool:
     try:
         _get_tokens()
         return True
-    except (FileNotFoundError, Exception):
+    except Exception:
         return False
 
 
@@ -96,12 +93,7 @@ def authenticate() -> Credentials:
             new_tokens = _refresh_via_server(tokens["refresh_token"])
             tokens["access_token"] = new_tokens["access_token"]
             tokens["expiry_date"] = new_tokens.get("expiry_date", 0)
-
-            _save_tokens(
-                tokens["access_token"],
-                tokens["refresh_token"],
-                tokens["expiry_date"],
-            )
+            _save_tokens(tokens["access_token"], tokens["refresh_token"], tokens["expiry_date"])
         except Exception:
             _clear_tokens()
             raise RuntimeError("Token expired. Run: email-brief login")

@@ -49,14 +49,9 @@ def _setup():
 
 
 def _login():
-    from .gmail_client import wait_for_auth_callback, is_authenticated, _clear_tokens
+    from .gmail_client import wait_for_auth_callback
 
     print("\n  📬 Email Brief — Gmail Setup\n")
-
-    if is_authenticated():
-        done("Already authenticated!")
-        print("  To re-authenticate, run: email-brief logout\n")
-        return
 
     try:
         wait_for_auth_callback()
@@ -93,7 +88,7 @@ def main():
     if command == "logout":
         from .gmail_client import _clear_tokens
         _clear_tokens()
-        done("Logged out. Tokens removed from keychain.")
+        done("Logged out. Credentials removed.")
         return
 
     if command == "run":
