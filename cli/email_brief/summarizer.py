@@ -132,7 +132,7 @@ def summarize_emails(emails: list[RawEmail]) -> list[EmailSummary]:
                         summary="",
                         priority=item.get("priority", "low"),
                         needs_reply=item.get("needsReply", False),
-                        category=item.get("category", "Unknown"),
+                        category=item.get("category", "FY"),
                     ))
             except Exception as err:
                 short = str(err)[:80]
@@ -141,7 +141,7 @@ def summarize_emails(emails: list[RawEmail]) -> list[EmailSummary]:
                     all_summaries.append(EmailSummary(
                         email_id=email.id, sender=email.sender, subject=email.subject,
                         date=email.date, summary=email.snippet, priority="fyi",
-                        needs_reply=False, category="Unknown",
+                        needs_reply=False, category="FYI",
                     ))
 
             if i + batch_size < len(ai_emails):
