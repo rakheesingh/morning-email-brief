@@ -5,6 +5,7 @@ import time
 from .config import GROQ_API_KEY, GEMINI_API_KEY
 from .types import RawEmail, EmailSummary
 from .prompts import build_triage_prompt, build_summarize_prompt
+from .prefilter import prefilter
 from .renderer import done, error
 
 MAX_RETRIES = 3
@@ -87,80 +88,99 @@ def summarize_emails(emails: list[RawEmail]) -> list[EmailSummary]:
     label = "Groq (Llama 3.3 70B)" if provider == "groq" else "Gemini 2.0 Flash"
     print(f"  Using: {label}\n")
 
-    # Step 1: Triage all emails (cheap — only subject + snippet)
-    print("  Step 1: Triaging all emails...")
+    # Step 1: Pre-filter — mark each email with needs_ai flag
+    print("  Step 1: Pre-filtering...")
+    filtered = prefilter(emails)
+
+    ai_emails = [item["email"] for item in filtered if item["needs_ai"]]
+    skipped = [item for item in filtered if not item["needs_ai"]]
+    done(f"Pre-filtered {len(skipped)} obvious emails, {len(ai_emails)} need AI")
+
+    # Build results list — start with pre-filtered ones
     all_summaries: list[EmailSummary] = []
-    batch_size = 25
 
-    for i in range(0, len(emails), batch_size):
-        batch = emails[i : i + batch_size]
-        prompt = build_triage_prompt(batch)
+    for item in skipped:
+        e = item["email"]
+        all_summaries.append(EmailSummary(
+            email_id=e.id, sender=e.sender, subject=e.subject,
+            date=e.date, summary=e.snippet, priority=item["priority"],
+            needs_reply=False, category=item["category"],
+        ))
 
-        try:
-            text = _call_with_retry(provider, prompt, f"triage {i + 1}-{i + len(batch)}")
-            parsed = _parse_json(text)
+    # Step 2: AI triage — only emails with needs_ai=True
+    if ai_emails:
+        print(f"\n  Step 2: AI triaging {len(ai_emails)} emails...")
+        batch_size = 25
 
-            email_map = {e.id: e for e in batch}
-            for item in parsed:
-                eid = item.get("emailId", "")
-                email = email_map.get(eid)
-                all_summaries.append(EmailSummary(
-                    email_id=eid,
-                    sender=item.get("from", email.sender if email else ""),
-                    subject=item.get("subject", email.subject if email else ""),
-                    date=email.date if email else "",
-                    summary="",
-                    priority=item.get("priority", "low"),
-                    needs_reply=item.get("needsReply", False),
-                    category=item.get("category", "Unknown"),
-                ))
-        except Exception as err:
-            short = str(err)[:80]
-            error(f"Triage failed: {short}")
-            for email in batch:
-                all_summaries.append(EmailSummary(
-                    email_id=email.id, sender=email.sender, subject=email.subject,
-                    date=email.date, summary=email.snippet, priority="fyi",
-                    needs_reply=False, category="Unknown",
-                ))
+        for i in range(0, len(ai_emails), batch_size):
+            batch = ai_emails[i : i + batch_size]
+            prompt = build_triage_prompt(batch)
 
-        if i + batch_size < len(emails):
-            time.sleep(1)
+            try:
+                text = _call_with_retry(provider, prompt, f"triage {i + 1}-{i + len(batch)}")
+                parsed = _parse_json(text)
 
-    urgent_important = [s for s in all_summaries if s.priority in ("urgent", "important")]
-    done(f"Triaged {len(all_summaries)} emails — {len(urgent_important)} need attention")
+                email_map = {e.id: e for e in batch}
+                for item in parsed:
+                    eid = item.get("emailId", "")
+                    email = email_map.get(eid)
+                    all_summaries.append(EmailSummary(
+                        email_id=eid,
+                        sender=item.get("from", email.sender if email else ""),
+                        subject=item.get("subject", email.subject if email else ""),
+                        date=email.date if email else "",
+                        summary="",
+                        priority=item.get("priority", "low"),
+                        needs_reply=item.get("needsReply", False),
+                        category=item.get("category", "Unknown"),
+                    ))
+            except Exception as err:
+                short = str(err)[:80]
+                error(f"Triage failed: {short}")
+                for email in batch:
+                    all_summaries.append(EmailSummary(
+                        email_id=email.id, sender=email.sender, subject=email.subject,
+                        date=email.date, summary=email.snippet, priority="fyi",
+                        needs_reply=False, category="Unknown",
+                    ))
 
-    # Step 2: Summarize only urgent + important (saves tokens)
-    if urgent_important:
-        print(f"\n  Step 2: Summarizing {len(urgent_important)} important emails...")
+            if i + batch_size < len(ai_emails):
+                time.sleep(1)
 
-        important_ids = {s.email_id for s in urgent_important}
-        important_emails = [e for e in emails if e.id in important_ids]
-        prompt = build_summarize_prompt(important_emails)
+        urgent_important = [s for s in all_summaries if s.priority in ("urgent", "important")]
+        done(f"AI triaged — {len(urgent_important)} urgent/important found")
 
-        try:
-            text = _call_with_retry(provider, prompt, "summarize")
-            results = _parse_json(text)
+        # Step 3: Summarize only urgent + important
+        if urgent_important:
+            print(f"\n  Step 3: Summarizing {len(urgent_important)} emails...")
 
-            summary_map = {r["emailId"]: r["summary"] for r in results if "emailId" in r}
-            for s in all_summaries:
-                if s.email_id in summary_map:
-                    s.summary = summary_map[s.email_id]
+            important_ids = {s.email_id for s in urgent_important}
+            important_emails = [e for e in ai_emails if e.id in important_ids]
+            prompt = build_summarize_prompt(important_emails)
 
-            done(f"Summarized {len(results)} emails")
-        except Exception as err:
-            short = str(err)[:80]
-            error(f"Summary failed: {short}")
-            email_map = {e.id: e for e in emails}
-            for s in urgent_important:
-                if not s.summary:
-                    email = email_map.get(s.email_id)
-                    s.summary = email.snippet if email else ""
+            try:
+                text = _call_with_retry(provider, prompt, "summarize")
+                results = _parse_json(text)
 
-    # FYI/low — use snippet (no AI call)
+                summary_map = {r["emailId"]: r["summary"] for r in results if "emailId" in r}
+                for s in all_summaries:
+                    if s.email_id in summary_map:
+                        s.summary = summary_map[s.email_id]
+
+                done(f"Summarized {len(results)} emails")
+            except Exception as err:
+                short = str(err)[:80]
+                error(f"Summary failed: {short}")
+                email_map = {e.id: e for e in ai_emails}
+                for s in urgent_important:
+                    if not s.summary:
+                        email = email_map.get(s.email_id)
+                        s.summary = email.snippet if email else ""
+
+    # Fill missing summaries with snippets
     email_map = {e.id: e for e in emails}
     for s in all_summaries:
-        if not s.summary and s.priority in ("fyi", "low"):
+        if not s.summary:
             email = email_map.get(s.email_id)
             s.summary = email.snippet if email else ""
 

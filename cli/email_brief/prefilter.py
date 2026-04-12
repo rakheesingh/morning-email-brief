@@ -1,10 +1,9 @@
 """
-Rule-based pre-filter that classifies ONLY obvious noise WITHOUT using AI.
-Only filters things that are definitely not worth AI analysis.
-Everything else goes to AI for proper classification.
+Rule-based pre-filter that adds a needs_ai flag to each email.
+Only marks obvious noise as not needing AI analysis.
 """
 import re
-from .types import RawEmail, EmailSummary
+from .types import RawEmail
 
 NOREPLY_PATTERNS = {"noreply", "no-reply", "do-not-reply", "donotreply", "mailer-daemon"}
 
@@ -50,40 +49,39 @@ def _is_mass_newsletter(email: RawEmail) -> bool:
     return is_noreply and mass_signals >= 2
 
 
-def prefilter(emails: list[RawEmail]) -> tuple[list[EmailSummary], list[RawEmail]]:
+def prefilter(emails: list[RawEmail]) -> list[dict]:
     """
-    Only filters out:
-    - Charity/donation spam (emotional manipulation patterns)
-    - Mass newsletters from noreply senders with unsubscribe links
-
-    Everything else goes to AI — we don't assume what's important to the user.
-
-    Returns:
-        - already_classified: obvious noise that doesn't need AI
-        - needs_ai: everything else
+    Returns a list of dicts, one per email:
+    {
+        "email": RawEmail,
+        "needs_ai": True/False,
+        "priority": "low" or None,
+        "category": "Spam"/"Newsletter" or None,
+    }
     """
-    already_classified: list[EmailSummary] = []
-    needs_ai: list[RawEmail] = []
+    results = []
 
     for email in emails:
         if _is_charity_spam(email):
-            already_classified.append(_make_summary(email, "low", "Spam"))
+            results.append({
+                "email": email,
+                "needs_ai": False,
+                "priority": "low",
+                "category": "Spam",
+            })
         elif _is_mass_newsletter(email):
-            already_classified.append(_make_summary(email, "low", "Newsletter"))
+            results.append({
+                "email": email,
+                "needs_ai": False,
+                "priority": "low",
+                "category": "Newsletter",
+            })
         else:
-            needs_ai.append(email)
+            results.append({
+                "email": email,
+                "needs_ai": True,
+                "priority": None,
+                "category": None,
+            })
 
-    return already_classified, needs_ai
-
-
-def _make_summary(email: RawEmail, priority: str, category: str) -> EmailSummary:
-    return EmailSummary(
-        email_id=email.id,
-        sender=email.sender,
-        subject=email.subject,
-        date=email.date,
-        summary=email.snippet,
-        priority=priority,
-        needs_reply=False,
-        category=category,
-    )
+    return results
