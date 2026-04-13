@@ -5,8 +5,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", message=".*NotOpenSSLWarning.*")
 warnings.filterwarnings("ignore", message=".*urllib3.*")
 
-from .config import GROQ_API_KEY, GEMINI_API_KEY, BRIEFING_TIME, EMAIL_COUNT
+from .config import GROQ_API_KEY, GEMINI_API_KEY, AI_PROVIDER, BRIEFING_TIME, EMAIL_COUNT
 from .renderer import done, error, render_briefing, render_history
+from .utils import select
 
 
 HELP = f"""
@@ -18,12 +19,17 @@ HELP = f"""
     email-brief last         Show the most recent briefing
     email-brief history      List all past briefing dates
     email-brief date <DATE>  Show briefing for a specific date (YYYY-MM-DD)
-    email-brief setup        Configure API keys interactively
+    email-brief setup        Choose AI provider (Groq / Gemini) & configure
     email-brief help         Show this help message
 
+  AI Providers:
+    Groq    Free — Llama 3.3 70B  (https://console.groq.com)
+    Gemini  Free — Gemini 2.0 Flash (https://aistudio.google.com/apikey)
+
   Config (~/.email-brief/.env):
-    BRIEFING_TIME={BRIEFING_TIME}   Daily schedule (24hr format)
-    EMAIL_COUNT={EMAIL_COUNT}       Emails to fetch
+    AI_PROVIDER               groq or gemini
+    BRIEFING_TIME={BRIEFING_TIME}        Daily schedule (24hr format)
+    EMAIL_COUNT={EMAIL_COUNT}          Emails to fetch
 """
 
 
@@ -33,18 +39,34 @@ def _setup():
 
     print("\n  📬 Email Brief — Setup\n")
 
-    groq_key = input("  Groq API Key (free from https://console.groq.com): ").strip()
+    providers = [
+        "Groq   — Free, fast (Llama 3.3 70B)",
+        "Gemini — Free tier (Gemini 2.0 Flash)",
+    ]
+    choice = select("Choose your AI provider  (↑↓ to move, Enter to select):", providers)
 
-    lines = [
-        f"GROQ_API_KEY={groq_key}",
-        f"AUTH_SERVER_URL=https://email-brief-eight.vercel.app",
+    lines = [f"AUTH_SERVER_URL=https://email-brief-eight.vercel.app"]
+
+    if choice == 0:
+        api_key = input("  Groq API Key (free from https://console.groq.com): ").strip()
+        lines.append(f"AI_PROVIDER=groq")
+        lines.append(f"GROQ_API_KEY={api_key}")
+        provider_name = "Groq (Llama 3.3 70B)"
+    else:
+        api_key = input("  Gemini API Key (free from https://aistudio.google.com/apikey): ").strip()
+        lines.append(f"AI_PROVIDER=gemini")
+        lines.append(f"GEMINI_API_KEY={api_key}")
+        provider_name = "Gemini 2.0 Flash"
+
+    lines.extend([
         f"BRIEFING_TIME={BRIEFING_TIME}",
         f"EMAIL_COUNT={EMAIL_COUNT}",
-    ]
+    ])
     env_path.write_text("\n".join(lines) + "\n")
 
     print("")
     done(f"Config saved to {env_path}")
+    done(f"AI provider: {provider_name}")
     print("  Now run: email-brief login\n")
 
 
@@ -81,8 +103,7 @@ def main():
 
     if not GROQ_API_KEY and not GEMINI_API_KEY:
         error("No AI API key set. Run: email-brief setup")
-        print("  Or set GROQ_API_KEY in ~/.email-brief/.env")
-        print("  Get a free key at: https://console.groq.com\n")
+        print("  This will let you choose between Groq and Gemini.\n")
         sys.exit(1)
 
     if command == "logout":

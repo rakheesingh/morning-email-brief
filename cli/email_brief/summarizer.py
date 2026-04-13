@@ -2,7 +2,7 @@ import json
 import re
 import time
 
-from .config import GROQ_API_KEY, GEMINI_API_KEY
+from .config import GROQ_API_KEY, GEMINI_API_KEY, AI_PROVIDER
 from .types import RawEmail, EmailSummary
 from .prompts import build_triage_prompt, build_summarize_prompt
 from .prefilter import prefilter
@@ -12,11 +12,15 @@ MAX_RETRIES = 3
 
 
 def _detect_provider() -> str:
+    if AI_PROVIDER == "groq" and GROQ_API_KEY:
+        return "groq"
+    if AI_PROVIDER == "gemini" and GEMINI_API_KEY:
+        return "gemini"
     if GROQ_API_KEY:
         return "groq"
     if GEMINI_API_KEY:
         return "gemini"
-    raise RuntimeError("No AI API key configured. Set GROQ_API_KEY or GEMINI_API_KEY.")
+    raise RuntimeError("No AI API key configured. Run: email-brief setup")
 
 
 def _call_groq(prompt: str) -> str:
