@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "morning-email-brief"
-version = "1.0.0"
+version = "1.0.1"
 description = "AI-powered CLI tool that reads your Gmail, summarizes every email with AI, and tells you what to reply to first"
 readme = "README.md"
 license = {text = "MIT"}
@@ -49,6 +49,7 @@ Repository = "https://github.com/rakheesingh/morning-email-brief"
 "Bug Tracker" = "https://github.com/rakheesingh/morning-email-brief/issues"
 
 [project.scripts]
+morning-email-brief = "email_brief.main:main"
 email-brief = "email_brief.main:main"
 
 [tool.setuptools.packages.find]

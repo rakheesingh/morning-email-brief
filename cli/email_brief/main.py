@@ -10,17 +10,22 @@ from .renderer import done, error, render_briefing, render_history
 from .utils import select
 
 
+CMD = "morning-email-brief"
+
 HELP = f"""
-  📬 email-brief — AI email briefing tool
+  📬 morning-email-brief — AI email briefing tool
+
+  Install:
+    pip install morning-email-brief
 
   Usage:
-    email-brief              Generate a new briefing
-    email-brief login        Sign in with Google (opens browser)
-    email-brief last         Show the most recent briefing
-    email-brief history      List all past briefing dates
-    email-brief date <DATE>  Show briefing for a specific date (YYYY-MM-DD)
-    email-brief setup        Choose AI provider (Groq / Gemini) & configure
-    email-brief help         Show this help message
+    {CMD}              Generate a new briefing
+    {CMD} login        Sign in with Google (opens browser)
+    {CMD} last         Show the most recent briefing
+    {CMD} history      List all past briefing dates
+    {CMD} date <DATE>  Show briefing for a specific date (YYYY-MM-DD)
+    {CMD} setup        Choose AI provider (Groq / Gemini) & configure
+    {CMD} help         Show this help message
 
   AI Providers:
     Groq    Free — Llama 3.3 70B  (https://console.groq.com)
@@ -67,7 +72,7 @@ def _setup():
     print("")
     done(f"Config saved to {env_path}")
     done(f"AI provider: {provider_name}")
-    print("  Now run: email-brief login\n")
+    print(f"  Now run: {CMD} login\n")
 
 
 def _login():
@@ -79,7 +84,7 @@ def _login():
         wait_for_auth_callback()
         print("")
         done("Gmail connected! Token saved locally.")
-        print("  Run: email-brief\n")
+        print(f"  Run: {CMD}\n")
     except Exception as err:
         error(str(err))
         sys.exit(1)
@@ -102,7 +107,7 @@ def main():
         return
 
     if not GROQ_API_KEY and not GEMINI_API_KEY:
-        error("No AI API key set. Run: email-brief setup")
+        error(f"No AI API key set. Run: {CMD} setup")
         print("  This will let you choose between Groq and Gemini.\n")
         sys.exit(1)
 
@@ -115,7 +120,7 @@ def main():
     if command == "run":
         from .gmail_client import is_authenticated
         if not is_authenticated():
-            error("Not authenticated. Run: email-brief login")
+            error(f"Not authenticated. Run: {CMD} login")
             sys.exit(1)
 
         from .briefing import run_briefing
@@ -126,7 +131,7 @@ def main():
         from .storage import get_latest_briefing
         briefing = get_latest_briefing()
         if not briefing:
-            error("No briefings found. Run: email-brief")
+            error(f"No briefings found. Run: {CMD}")
             sys.exit(1)
         print(render_briefing(briefing))
 
@@ -137,7 +142,7 @@ def main():
 
     elif command == "date":
         if len(args) < 2:
-            error("Provide a date: email-brief date 2026-04-07")
+            error(f"Provide a date: {CMD} date 2026-04-07")
             sys.exit(1)
         from .storage import get_briefing_by_date
         briefing = get_briefing_by_date(args[1])

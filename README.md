@@ -1,4 +1,4 @@
-# 📬 Email Brief
+# 📬 Morning Email Brief
 
 **AI-powered CLI tool that reads your Gmail inbox, summarizes every email in one sentence, and tells you what to reply to first.**
 
@@ -13,7 +13,7 @@ Built for developers and busy professionals who get 50-100+ emails a day and mis
 ## What It Does
 
 ```
-$ email-brief
+$ morning-email-brief
 
   📬 Morning Email Briefing
   Wednesday, April 8, 2026 at 10:00 AM
@@ -68,26 +68,26 @@ $ email-brief
 ### Install
 
 ```bash
-pip install email-brief
+pip install morning-email-brief
 ```
 
 ### Setup (2 minutes, one time)
 
 ```bash
-# 1. Configure your free Groq API key
-email-brief setup
+# 1. Choose AI provider (Groq or Gemini) & enter API key
+morning-email-brief setup
 
 # 2. Sign in with Google (opens browser)
-email-brief login
+morning-email-brief login
 ```
 
 ### Use
 
 ```bash
-email-brief              # Generate today's briefing
-email-brief last         # Re-print the last briefing
-email-brief history      # List past briefing dates
-email-brief date 2026-04-08  # View a specific day's briefing
+morning-email-brief              # Generate today's briefing
+morning-email-brief last         # Re-print the last briefing
+morning-email-brief history      # List past briefing dates
+morning-email-brief date 2026-04-08  # View a specific day's briefing
 ```
 
 ---
@@ -130,7 +130,7 @@ FYI and Low Priority emails just show the original snippet — no AI call needed
 
 ### Gmail Access
 
-Run `email-brief login` — opens your browser for Google sign-in. Read-only access, we never send or modify emails.
+Run `morning-email-brief login` — opens your browser for Google sign-in. Read-only access, we never send or modify emails.
 
 ---
 
@@ -152,7 +152,7 @@ EMAIL_COUNT=50                 # Number of emails to fetch
 ## Project Structure
 
 ```
-email-brief/
+morning-email-brief/
 ├── cli/                       # Python CLI tool (pip installable)
 │   ├── email_brief/
 │   │   ├── main.py            # CLI entry point
@@ -209,7 +209,7 @@ Set `GROQ_API_KEY` or `GEMINI_API_KEY` in your config. Groq is recommended (fast
 
 ## Roadmap
 
-- [x] CLI tool with `pip install`
+- [x] CLI tool with `pip install morning-email-brief`
 - [x] Gmail integration (OAuth2)
 - [x] AI-powered triage + summarization
 - [x] Smart priority scoring (Urgent → Important → FYI → Low)
@@ -230,8 +230,8 @@ Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ```bash
 # Clone and setup for development
-git clone https://github.com/yourusername/email-brief.git
-cd email-brief/cli
+git clone https://github.com/rakheesingh/morning-email-brief.git
+cd morning-email-brief/cli
 pip install -e .
 ```
 
