@@ -8,6 +8,7 @@ warnings.filterwarnings("ignore", message=".*urllib3.*")
 from .config import GROQ_API_KEY, GEMINI_API_KEY, AI_PROVIDER, BRIEFING_TIME, EMAIL_COUNT
 from .renderer import done, error, render_briefing, render_history
 from .utils import select
+from .gmail_client import _clear_tokens
 
 
 CMD = "morning-email-brief"
@@ -112,7 +113,6 @@ def main():
         sys.exit(1)
 
     if command == "logout":
-        from .gmail_client import _clear_tokens
         _clear_tokens()
         done("Logged out. Credentials removed.")
         return

@@ -1,10 +1,12 @@
 import base64
 import json
+import logging
 import os
 import re
 import subprocess
 import platform
 import time
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from threading import Event
@@ -19,6 +21,13 @@ from .types import RawEmail
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 CLI_CALLBACK_PORT = 9587
 TOKEN_FILE = DATA_DIR / ".credentials"
+LOG_FILE = DATA_DIR / "debug.log"
+
+_logger = logging.getLogger("email-brief")
+_logger.setLevel(logging.DEBUG)
+_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+_logger.addHandler(_handler)
 
 
 def _open_browser(url: str):
@@ -39,15 +48,17 @@ def _save_tokens(access_token: str, refresh_token: str, expiry_date: int):
     })
     TOKEN_FILE.write_text(data)
     os.chmod(TOKEN_FILE, 0o600)
+    has_refresh = bool(refresh_token)
+    _logger.info("Tokens saved — has_refresh=%s, expiry=%s", has_refresh, expiry_date)
 
 
 def _get_tokens() -> dict:
     if not TOKEN_FILE.exists():
-        raise FileNotFoundError("Not authenticated. Run: email-brief login")
+        raise FileNotFoundError("Not authenticated. Run: morning-email-brief login")
 
     data = json.loads(TOKEN_FILE.read_text())
     if not data.get("access_token") or not data.get("refresh_token"):
-        raise FileNotFoundError("Invalid credentials. Run: email-brief login")
+        raise FileNotFoundError("Invalid credentials. Run: morning-email-brief login")
 
     return data
 
@@ -58,17 +69,43 @@ def _clear_tokens():
 
 
 def _refresh_via_server(refresh_token: str) -> dict:
-    resp = http_requests.post(
-        f"{AUTH_SERVER_URL}/api/auth/refresh",
-        json={"refresh_token": refresh_token},
-        timeout=15,
-    )
+    url = f"{AUTH_SERVER_URL}/api/auth/refresh"
+    _logger.info("Refresh request → POST %s", url)
+
+    try:
+        resp = http_requests.post(
+            url,
+            json={"refresh_token": refresh_token},
+            timeout=30,
+        )
+    except http_requests.exceptions.RequestException as net_err:
+        _logger.error("Refresh network error: %s", net_err)
+        raise RuntimeError(f"Token refresh failed: network error — {net_err}")
+
+    _logger.info("Refresh response: status=%d, content-type=%s, body=%s",
+                 resp.status_code,
+                 resp.headers.get("content-type", "unknown"),
+                 resp.text[:500])
 
     if resp.status_code != 200:
-        error = resp.json().get("error", "Unknown error")
+        try:
+            error = resp.json().get("error", "Unknown error")
+        except Exception:
+            error = f"Server returned {resp.status_code}"
+        _logger.error("Refresh failed: %s", error)
         raise RuntimeError(f"Token refresh failed: {error}")
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except Exception:
+        _logger.error("Refresh response not valid JSON: %s", resp.text[:500])
+        raise RuntimeError("Token refresh failed: invalid response from server")
+
+    if not data.get("access_token"):
+        _logger.error("Refresh response missing access_token: %s", data)
+        raise RuntimeError("Token refresh failed: no access_token in response")
+
+    _logger.info("Refresh success — new token expires at %s", data.get("expiry_date"))
     return {
         "access_token": data["access_token"],
         "expiry_date": data.get("expiry_date", 0),
@@ -86,17 +123,37 @@ def is_authenticated() -> bool:
 def authenticate() -> Credentials:
     tokens = _get_tokens()
 
-    is_expired = tokens["expiry_date"] and tokens["expiry_date"] < int(time.time() * 1000)
+    now_ms = int(time.time() * 1000)
+    expiry = tokens["expiry_date"]
+    is_expired = expiry and expiry < now_ms
+
+    _logger.info("Auth check — expiry=%s, now=%s, expired=%s", expiry, now_ms, is_expired)
 
     if is_expired:
-        try:
-            new_tokens = _refresh_via_server(tokens["refresh_token"])
-            tokens["access_token"] = new_tokens["access_token"]
-            tokens["expiry_date"] = new_tokens.get("expiry_date", 0)
-            _save_tokens(tokens["access_token"], tokens["refresh_token"], tokens["expiry_date"])
-        except Exception:
-            _clear_tokens()
-            raise RuntimeError("Token expired. Run: email-brief login")
+        _logger.info("Token expired %ds ago, starting refresh", (now_ms - expiry) // 1000)
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                new_tokens = _refresh_via_server(tokens["refresh_token"])
+                tokens["access_token"] = new_tokens["access_token"]
+                tokens["expiry_date"] = new_tokens.get("expiry_date", 0)
+                _save_tokens(tokens["access_token"], tokens["refresh_token"], tokens["expiry_date"])
+                _logger.info("Refresh succeeded on attempt %d", attempt)
+                last_error = None
+                break
+            except Exception as err:
+                last_error = err
+                _logger.warning("Refresh attempt %d failed: %s", attempt, err)
+                if attempt < 3:
+                    time.sleep(attempt * 2)
+
+        if last_error:
+            _logger.error("All 3 refresh attempts failed. Last error: %s", last_error)
+            raise RuntimeError(
+                f"Token refresh failed after 3 attempts: {last_error}\n"
+                f"  Check logs: {LOG_FILE}\n"
+                "  Run: morning-email-brief login"
+            )
 
     return Credentials(token=tokens["access_token"])
 

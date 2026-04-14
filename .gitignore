@@ -17,7 +17,9 @@ dist/
 .env
 .env.local
 token.json
+.credentials
 *.db
+debug.log
 data/
 
 # IDE
