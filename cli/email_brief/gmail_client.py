@@ -1,6 +1,5 @@
 import base64
 import json
-import logging
 import os
 import re
 import subprocess
@@ -17,17 +16,14 @@ from googleapiclient.discovery import build
 
 from .config import AUTH_SERVER_URL, DATA_DIR
 from .types import RawEmail
+from .utils import get_logger
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 CLI_CALLBACK_PORT = 9587
 TOKEN_FILE = DATA_DIR / ".credentials"
 LOG_FILE = DATA_DIR / "debug.log"
 
-_logger = logging.getLogger("email-brief")
-_logger.setLevel(logging.DEBUG)
-_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
-_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-_logger.addHandler(_handler)
+_logger = get_logger("email-brief", LOG_FILE)
 
 
 def _open_browser(url: str):

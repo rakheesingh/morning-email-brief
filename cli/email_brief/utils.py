@@ -1,7 +1,20 @@
+import logging
 import sys
 import tty
 import termios
+from pathlib import Path
 from typing import List
+
+
+def get_logger(name: str, log_file: Path) -> logging.Logger:
+    """Return a named logger that writes DEBUG+ to the given file."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        logger.setLevel(logging.DEBUG)
+        handler = logging.FileHandler(log_file, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        logger.addHandler(handler)
+    return logger
 
 
 def select(prompt: str, options: List[str]) -> int:
