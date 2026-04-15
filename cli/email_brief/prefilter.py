@@ -27,6 +27,8 @@ MASS_MAIL_SIGNALS = {
     "update your preferences",
 }
 
+IMAGE_HEAVY_THRESHOLD = 3
+
 
 def _get_sender_local(email_addr: str) -> str:
     match = re.search(r"<?([\w.+-]+)@", email_addr)
@@ -49,6 +51,12 @@ def _is_mass_newsletter(email: RawEmail) -> bool:
     return is_noreply and mass_signals >= 2
 
 
+def _is_image_heavy(email: RawEmail) -> bool:
+    if email.has_attachment:
+        return False
+    return email.image_count >= IMAGE_HEAVY_THRESHOLD
+
+
 def prefilter(emails: list[RawEmail]) -> list[dict]:
     """
     Returns a list of dicts, one per email:
@@ -56,7 +64,7 @@ def prefilter(emails: list[RawEmail]) -> list[dict]:
         "email": RawEmail,
         "needs_ai": True/False,
         "priority": "low" or None,
-        "category": "Spam"/"Newsletter" or None,
+        "category": "Spam"/"Newsletter"/"Promotion" or None,
     }
     """
     results = []
@@ -75,6 +83,13 @@ def prefilter(emails: list[RawEmail]) -> list[dict]:
                 "needs_ai": False,
                 "priority": "low",
                 "category": "Newsletter",
+            })
+        elif _is_image_heavy(email):
+            results.append({
+                "email": email,
+                "needs_ai": False,
+                "priority": "low",
+                "category": "Promotion",
             })
         else:
             results.append({

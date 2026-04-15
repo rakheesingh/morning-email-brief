@@ -17,6 +17,8 @@ class RawEmail:
     body: str
     labels: list[str] = field(default_factory=list)
     is_unread: bool = False
+    image_count: int = 0
+    has_attachment: bool = False
 
 
 @dataclass

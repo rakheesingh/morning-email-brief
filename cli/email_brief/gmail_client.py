@@ -1,11 +1,9 @@
 import base64
 import json
 import os
-import re
 import subprocess
 import platform
 import time
-from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from threading import Event
@@ -16,7 +14,7 @@ from googleapiclient.discovery import build
 
 from .config import AUTH_SERVER_URL, DATA_DIR
 from .types import RawEmail
-from .utils import get_logger
+from .utils import _extract_body, get_logger, _count_images
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 CLI_CALLBACK_PORT = 9587
@@ -218,9 +216,6 @@ def wait_for_auth_callback():
         raise RuntimeError(error_msg[0])
 
 
-def _decode_base64(data: str) -> str:
-    padded = data.replace("-", "+").replace("_", "/")
-    return base64.b64decode(padded + "==").decode("utf-8", errors="replace")
 
 
 def _extract_header(headers: list, name: str) -> str:
@@ -229,27 +224,6 @@ def _extract_header(headers: list, name: str) -> str:
             return h.get("value", "")
     return ""
 
-
-def _extract_body(payload: dict) -> str:
-    if payload.get("body", {}).get("data"):
-        return _decode_base64(payload["body"]["data"])
-
-    parts = payload.get("parts", [])
-    for mime in ["text/plain", "text/html"]:
-        for part in parts:
-            if part.get("mimeType") == mime and part.get("body", {}).get("data"):
-                text = _decode_base64(part["body"]["data"])
-                if mime == "text/html":
-                    text = re.sub(r"<[^>]*>", " ", text)
-                    text = re.sub(r"\s+", " ", text).strip()
-                return text
-
-    for part in parts:
-        nested = _extract_body(part)
-        if nested:
-            return nested
-
-    return ""
 
 
 def fetch_recent_emails(count: int) -> list[RawEmail]:
@@ -273,8 +247,10 @@ def fetch_recent_emails(count: int) -> list[RawEmail]:
             userId="me", id=msg_ref["id"], format="full"
         ).execute()
 
-        headers = msg.get("payload", {}).get("headers", [])
-        body = _extract_body(msg.get("payload", {}))
+        payload = msg.get("payload", {})
+        headers = payload.get("headers", [])
+        body = _extract_body(payload)
+        inline_imgs, has_attachment = _count_images(payload)
 
         emails.append(RawEmail(
             id=msg.get("id", ""),
@@ -287,6 +263,8 @@ def fetch_recent_emails(count: int) -> list[RawEmail]:
             body=body[:2000],
             labels=msg.get("labelIds", []),
             is_unread="UNREAD" in msg.get("labelIds", []),
+            image_count=inline_imgs,
+            has_attachment=has_attachment,
         ))
 
         if (i + 1) % 10 == 0:
