@@ -33,20 +33,18 @@ PRIORITY RULES (be strict):
   - Production outage, P0/P1 incident assigned to you
   - Access/credentials expiring TODAY that block your work
   - A real person you know is blocked and waiting on you
+  - your priority got changed or today is your due date for a project or task
   DO NOT mark as urgent: emotional subject lines, charity appeals, clickbait, bank alerts
 
 "important" — Use for:
   - An email from legitimate platforms(example - github, google, aws, azure, vercel, slack, etc.) they are asking for your immediate action or response. figure out if it is a real platform or not.
-  - A real person (colleague, recruiter, manager) directly emailing YOU and expecting a response
+  - A real person (colleague, recruiter, manager) directly emailing you for a specific question and expecting a response
   - Calendar invites or meeting changes from real people
-  - Actionable work emails from real humans (not bots)
   - Emails from the comapnies like mynra,flipkart, amazon etc about real coupon or offer codes given to you
-  DO NOT mark as important: automated job alerts (Naukri, LinkedIn, Indeed), bank notifications, newsletters with "important" in subject
 
 "fyi" — Use for:
   - Informational emails worth knowing but no action needed
-  - Bank transaction alerts, account statements
-  - System notifications (UPI alerts, delivery updates)
+  - Bank transaction alerts, account statements, UPI alerts, delivery updates
   - Team announcements not requiring your input
 
 "low" — Use for:
