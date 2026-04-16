@@ -36,6 +36,7 @@ PRIORITY RULES (be strict):
   DO NOT mark as urgent: emotional subject lines, charity appeals, clickbait, bank alerts
 
 "important" — Use for:
+  - An email from legitimate platforms(example - github, google, aws, azure, vercel, slack, etc.) they are asking for your immediate action or response. figure out if it is a real platform or not.
   - A real person (colleague, recruiter, manager) directly emailing YOU and expecting a response
   - Calendar invites or meeting changes from real people
   - Actionable work emails from real humans (not bots)
@@ -58,7 +59,7 @@ PRIORITY RULES (be strict):
   - Any mass-sent email not personally addressed to you
 
 NEEDSREPLY RULES (be very strict):
-- true ONLY if a real individual human is personally asking YOU a question or requesting YOUR specific action
+- true ONLY if a real individual human is personally asking YOU a question or requesting YOUR specific action or imidately expecting your response
 - false for: automated emails, no-reply senders, mass emails, newsletters, bank alerts, job platform notifications, charity appeals
 - If the sender is a company/platform/bot → needsReply = false, always
 
@@ -67,7 +68,6 @@ COMMON TRAPS TO AVOID:
 - "Important update" from banks/credit cards → just a notification → "fyi" or "low"
 - "You have a new job" from Naukri/Indeed → automated alert → "low"
 - "X recruiter expressed interest" → automated platform notification → "low"
-- Emails from noreply@ or automated systems → never "urgent" or "needs reply"
 - Ignore emails from noreply@ or automated systems
 - Ignore emails for bank credentials, OTPs, transactions, any other financial information
 
