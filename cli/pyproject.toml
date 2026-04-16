@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "morning-email-brief"
-version = "1.0.1"
+version = "1.0.2"
 description = "AI-powered CLI tool that reads your Gmail, summarizes every email with AI, and tells you what to reply to first"
 readme = "README.md"
 license = {text = "MIT"}
