@@ -226,12 +226,16 @@ def _extract_header(headers: list, name: str) -> str:
 
 
 
-def fetch_recent_emails(count: int) -> list[RawEmail]:
+def fetch_recent_emails(count: int, after_epoch: int | None = None) -> list[RawEmail]:
     creds = authenticate()
     service = build("gmail", "v1", credentials=creds)
 
+    query = "in:inbox is:unread"
+    if after_epoch:
+        query += f" after:{after_epoch}"
+
     results = service.users().messages().list(
-        userId="me", maxResults=count, q="in:inbox is:unread"
+        userId="me", maxResults=count, q=query
     ).execute()
 
     message_ids = results.get("messages", [])
