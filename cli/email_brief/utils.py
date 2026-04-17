@@ -1,9 +1,10 @@
 import logging
 import sys
+import time
 import tty
 import termios
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import base64
 import re
 
@@ -119,4 +120,19 @@ def _count_images(payload: dict) -> tuple[int, bool]:
             has_attachment = True
 
     return inline, has_attachment
+
+
+def get_last_run(last_run_file: Path) -> Optional[int]:
+    """Return the last run epoch timestamp (seconds), or None if never run."""
+    if not last_run_file.exists():
+        return None
+    try:
+        return int(last_run_file.read_text().strip())
+    except (ValueError, OSError):
+        return None
+
+
+def save_last_run(last_run_file: Path):
+    """Save current epoch timestamp (seconds) as the last run time."""
+    last_run_file.write_text(str(int(time.time())))
 

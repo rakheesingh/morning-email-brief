@@ -19,3 +19,4 @@ EMAIL_COUNT = int(os.getenv("EMAIL_COUNT", "50"))
 
 TOKEN_PATH = DATA_DIR / "token.json"
 DB_PATH = DATA_DIR / "briefings.db"
+LAST_RUN_FILE = DATA_DIR / ".last_run"
