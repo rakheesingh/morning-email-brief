@@ -31,6 +31,7 @@ class EmailSummary:
     priority: PriorityLevel
     needs_reply: bool
     category: str
+    reason: Optional[str] = None  # 2-3 word reason for urgent/important
 
 
 @dataclass
