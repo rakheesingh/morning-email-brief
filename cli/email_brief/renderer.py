@@ -95,9 +95,12 @@ def render_briefing(briefing: Briefing) -> str:
             sender = _format_sender(email.sender)
             reply_tag = _c(MAGENTA, " [↩ REPLY]") if email.needs_reply else ""
             cat_tag = _c(GRAY, f" [{email.category}]")
+            reason_tag = ""
+            if email.reason and priority in ("urgent", "important"):
+                reason_tag = _c(YELLOW, f" • {email.reason}")
 
             lines.append(f"  {_c(BOLD, f'{idx}.')} {_c(BOLD, _truncate(email.subject, 55))}")
-            lines.append(f"     {_c(CYAN, sender)}{reply_tag}{cat_tag}")
+            lines.append(f"     {_c(CYAN, sender)}{reply_tag}{cat_tag}{reason_tag}")
             if email.summary:
                 lines.append(f"     {_c(DIM, '→')} {email.summary}")
             lines.append("")

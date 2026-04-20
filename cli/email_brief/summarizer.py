@@ -128,15 +128,18 @@ def summarize_emails(emails: list[RawEmail]) -> list[EmailSummary]:
                 for item in parsed:
                     eid = item.get("emailId", "")
                     email = email_map.get(eid)
+                    priority = item.get("priority", "low")
+                    reason = item.get("reason", "") if priority in ("urgent", "important") else None
                     all_summaries.append(EmailSummary(
                         email_id=eid,
                         sender=item.get("from", email.sender if email else ""),
                         subject=item.get("subject", email.subject if email else ""),
                         date=email.date if email else "",
                         summary="",
-                        priority=item.get("priority", "low"),
+                        priority=priority,
                         needs_reply=item.get("needsReply", False),
                         category=item.get("category", "FY"),
+                        reason=reason if reason else None,
                     ))
             except Exception as err:
                 short = str(err)[:80]

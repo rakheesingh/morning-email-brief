@@ -23,6 +23,7 @@ For EACH email, return an object with:
 - "date": ""
 - "summary": ""
 - "priority": one of "urgent", "important", "fyi", "low"
+- "reason": ONLY for "urgent" or "important" emails — a 2-4 word phrase explaining WHY (e.g., "deadline today", "manager asking", "PR review needed", "meeting conflict", "payment due"). Leave empty for "fyi" and "low".
 - "needsReply": true ONLY if a real human (not a bot/system) is directly asking the recipient a question or waiting for their response
 - "category": one of "Work", "Finance", "Meeting", "Newsletter", "Personal", "Notification", "HR", "Sales", "Promotion", "Spam"
 
