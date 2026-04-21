@@ -20,12 +20,11 @@ HELP = f"""
     pip install morning-email-brief
 
   Usage:
-    {CMD}              Generate a new briefing
+    {CMD}              Generate a new briefing (auto-setup on first run)
     {CMD} login        Sign in with Google (opens browser)
     {CMD} last         Show the most recent briefing
     {CMD} history      List all past briefing dates
     {CMD} date <DATE>  Show briefing for a specific date (YYYY-MM-DD)
-    {CMD} setup        Choose AI provider (Groq / Gemini) & configure
     {CMD} help         Show this help message
 
   AI Providers:
@@ -39,11 +38,13 @@ HELP = f"""
 """
 
 
-def _setup():
+def _setup(silent=False):
+    """Run interactive setup. Returns True if setup completed successfully."""
     from .config import DATA_DIR
     env_path = DATA_DIR / ".env"
 
-    print("\n  📬 Email Brief — Setup\n")
+    if not silent:
+        print("\n  📬 Email Brief — Setup\n")
 
     providers = [
         "Groq   — Free, fast (Llama 3.3 70B)",
@@ -55,11 +56,17 @@ def _setup():
 
     if choice == 0:
         api_key = input("  Groq API Key (free from https://console.groq.com): ").strip()
+        if not api_key:
+            error("API key cannot be empty.")
+            return False
         lines.append(f"AI_PROVIDER=groq")
         lines.append(f"GROQ_API_KEY={api_key}")
         provider_name = "Groq (Llama 3.3 70B)"
     else:
         api_key = input("  Gemini API Key (free from https://aistudio.google.com/apikey): ").strip()
+        if not api_key:
+            error("API key cannot be empty.")
+            return False
         lines.append(f"AI_PROVIDER=gemini")
         lines.append(f"GEMINI_API_KEY={api_key}")
         provider_name = "Gemini 2.0 Flash"
@@ -73,7 +80,7 @@ def _setup():
     print("")
     done(f"Config saved to {env_path}")
     done(f"AI provider: {provider_name}")
-    print(f"  Now run: {CMD} login\n")
+    return True
 
 
 def _login():
@@ -99,22 +106,22 @@ def main():
         print(HELP)
         return
 
-    if command == "setup":
-        _setup()
-        return
-
     if command == "login":
         _login()
         return
 
-    if not GROQ_API_KEY and not GEMINI_API_KEY:
-        error(f"No AI API key set. Run: {CMD} setup")
-        print("  This will let you choose between Groq and Gemini.\n")
-        sys.exit(1)
-
     if command == "logout":
         _clear_tokens()
         done("Logged out. Credentials removed.")
+        return
+
+    # Auto-setup if no API key configured
+    if not GROQ_API_KEY and not GEMINI_API_KEY:
+        print("\n  📬 Welcome to Email Brief!\n")
+        print("  No AI provider configured. Let's set one up.\n")
+        if not _setup(silent=True):
+            sys.exit(1)
+        print(f"\n  Now run: {CMD} login\n")
         return
 
     if command == "run":
